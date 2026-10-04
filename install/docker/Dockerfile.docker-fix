@@ -22,7 +22,7 @@ COPY --from=gui /build/web /src/web
 RUN rm -rf service/server/router/web && mkdir -p service/server/router/web \
     && cp -a web/. service/server/router/web/ \
     && cd service && CGO_ENABLED=0 go build -trimpath -o /out/v2raya \
-       -ldflags="-X github.com/v2rayA/v2rayA/conf.Version=v2.5.8-docker-fix -s -w"
+       -ldflags="-X github.com/v2rayA/v2rayA/conf.Version=v2.5.8 -s -w"
 
 FROM ghcr.io/v2raya/v2raya:v2.5.8
 COPY --from=builder /out/v2raya /usr/bin/v2raya
