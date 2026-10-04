@@ -497,7 +497,7 @@ func (t *Template) setTransparentRouting() (err error) {
 }
 func (t *Template) AppendDokodemoTProxy(tproxy string, port int, tag string) {
 	dokodemo := coreObj.Inbound{
-		Listen:   "127.0.0.1",
+		Listen:   "0.0.0.0",
 		Port:     port,
 		Protocol: "dokodemo-door",
 		Sniffing: coreObj.Sniffing{

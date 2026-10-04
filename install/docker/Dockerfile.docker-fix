@@ -1,0 +1,46 @@
+# v2rayA v2.5.8 with transparent-proxy inbound listening on 0.0.0.0
+# (restores docker/bridge container coverage, like 2.2.7.5 did)
+# Build from source: GUI (yarn) -> embedded web -> Go binary.
+# v2raya_core is taken unmodified from the official v2.5.8 release.
+
+FROM node:24-alpine AS gui
+WORKDIR /build
+COPY gui/package.json gui/yarn.lock ./gui/
+RUN yarn --cwd gui --check-files --frozen-lockfile || yarn --cwd gui --check-files
+COPY gui ./gui
+RUN yarn --cwd gui build
+
+FROM golang:1.26-alpine AS builder
+WORKDIR /src
+COPY service/go.mod service/go.sum ./service/
+RUN cd service && go mod download
+COPY service ./service
+COPY --from=gui /build/web /src/web
+RUN rm -rf service/server/router/web && mkdir -p service/server/router/web \
+    && cp -a web/. service/server/router/web/ \
+    && cd service && CGO_ENABLED=0 go build -trimpath -o /out/v2raya \
+       -ldflags="-X github.com/v2rayA/v2rayA/conf.Version=v2.5.8-docker-fix -s -w"
+RUN apk add --no-cache curl \
+    && curl -fLo /out/v2raya_core https://github.com/v2rayA/v2rayA/releases/download/v2.5.8/v2raya_core_linux_x64_2.5.8 \
+    && chmod +x /out/v2raya_core
+
+FROM alpine:latest
+WORKDIR /
+COPY --from=builder /out/v2raya /usr/bin/v2raya
+COPY --from=builder /out/v2raya_core /usr/bin/v2raya_core
+COPY ./install/docker/iptables.sh ./iptables.sh
+COPY ./install/docker/ip6tables.sh ./ip6tables.sh
+RUN mkdir /usr/share/v2raya \
+    && wget -O /usr/share/v2raya/LoyalsoldierSite.dat https://raw.githubusercontent.com/mzz2017/dist-v2ray-rules-dat/master/geosite.dat \
+    && wget -O /usr/share/v2raya/geosite.dat https://raw.githubusercontent.com/mzz2017/dist-v2ray-rules-dat/master/geosite.dat \
+    && wget -O /usr/share/v2raya/geoip.dat https://raw.githubusercontent.com/mzz2017/dist-v2ray-rules-dat/master/geoip.dat \
+    && apk add --no-cache iptables iptables-legacy nftables tzdata \
+    && install ./iptables.sh /usr/local/bin/iptables \
+    && install ./ip6tables.sh /usr/local/bin/ip6tables \
+    && install ./iptables.sh /usr/local/bin/iptables-nft \
+    && install ./ip6tables.sh /usr/local/bin/ip6tables-nft \
+    && install ./iptables.sh /usr/local/bin/iptables-legacy \
+    && install ./ip6tables.sh /usr/local/bin/iptables-legacy
+EXPOSE 2017
+VOLUME /etc/v2raya
+ENTRYPOINT ["v2raya"]
